@@ -1,5 +1,5 @@
 from flask import request, make_response,  jsonify
-from models.user import User
+from models.user import Users
 from functools import wraps
 import jwt
 import os
@@ -14,11 +14,11 @@ def token_required(f):
             token = request.headers["userToken"]
 
         if not token:
-            return make_response(jsonify(message="User token is required for this action"), 401)
+            return make_response(jsonify(message="Authorization token is required for this action"), 401)
 
         try:
             data = jwt.decode(token, os.environ.get('JWT_KEY'))
-            user = User.query.filter_by(id=data['id']).first()
+            user = Users.select().where(Users.id==data['id']).get()
         except:
             return make_response(jsonify(message="Unable to authenticate due to token being invalid"), 401)
 

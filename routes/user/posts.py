@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from routes.auth import token_required
 from models.post import Post, db
-from models.user import User
+from models.user import Users
 import snowflake
 from datetime import datetime, timezone
 
@@ -17,10 +17,7 @@ def post(user_id):
     # if user_id.id is not user_id.id:
     #     return make_response(jsonify(message='Unable to create new post, user id\'s did not match'), 401)
 
-    new_post = Post(id=sf.__next__(), author=user_id.id, content=data['content'], created_at=datetime.utcnow().strftime("%Y%m%d"), updated_at=datetime.utcnow().strftime("%Y%m%d"), likes=[])
-
-    db.session.add(new_post)
-    db.session.commit()
+    new_post = Post.create(id=sf.__next__(), author=user_id.id, content=data['content'], created_at=datetime.utcnow().strftime("%Y%m%d"), updated_at=datetime.utcnow().strftime("%Y%m%d"), likes=[])
 
     return jsonify(success=True, message='New post was created successfully'), 200
 
@@ -29,7 +26,7 @@ def post(user_id):
 @token_required
 def post2(user_id, post_id):
 
-    find = Post.query.filter_by(id=post_id).first()
+    find = Post.select().where(Post.id==post_id).get()
 
     if find is None:
         return jsonify(success=False, message='Unable to find that post'), 401
@@ -37,8 +34,7 @@ def post2(user_id, post_id):
     if user_id.id != find.author:
         return jsonify(success=False, message='Unable to delete that post, user id\'s did not match'), 401
 
-    db.session.delete(find)
-    db.session.commit()
+    Post.select().where(Post.id==post_id).get().delete_instance()
 
     return jsonify(success=True, message='Post was successfully deleted'), 200
 
@@ -47,28 +43,39 @@ def post2(user_id, post_id):
 @token_required
 def post3(user_id, post_id):
 
-    get_post = Post.query.filter_by(id=post_id).first()
-    likes = []
-    likes.append(get_post.likes)
-    likes.append(user_id.id)
-    get_post.likes = likes
+    get_post = Post.select().where(Post.id==post_id).get()
 
-    if likes is None:
+    _likes = []
+
+    if get_post.likes is None:
         likes.append(user_id.id)
-        get_post.likes = likes
 
-    get_user = User.query.filter_by(id=get_post.author).first()
+    if user_id.id in get_post.likes:
+        return jsonify(success=False, message='User is already in "likes"')
 
-    return jsonify(success=True, message=f'Liked {get_user.username}\'s post'), 200
+    _likes.append(get_post.likes)
+    _likes.append(user_id.id)
 
-    # db.session.merge(get_post)
-    # db.session.flush()
-    db.session.commit()
+    update = Post.update(likes=_likes).where(Post.id==post_id).execute()
+
+    """
+        query = (User
+                .update(is_active=False)
+                .where(User.registration_expired == True)
+                .returning(User))
+
+        # Send an email to every user that was deactivated.
+        for deactivate_user in query.execute():
+            send_deactivation_email(deactivated_user.email)
+    """
+
+    return jsonify(success=True, message=get_post.likes), 200
+
 
 @posts.route("/users/posts/<post_id>", methods=["GET"])
 @token_required
 def post4(user_id, post_id):
-    find_post = Post.query.filter_by(id=post_id).first()
+    find_post = Post.select().where(Post.id==post_id).get()
 
     return jsonify(success=True, author=find_post.author, user=user_id.id, content=find_post.content, likes=len(find_post.likes)), 200
 

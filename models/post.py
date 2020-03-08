@@ -1,13 +1,20 @@
-from flask_sqlalchemy import SQLAlchemy
+# http://docs.peewee-orm.com/en/latest/peewee/database.html
 
-db = SQLAlchemy()
+from peewee import *
+import os
 
-class Post(db.Model):
-    id = db.Column(db.BIGINT, primary_key=True)
-    author = db.Column(db.BIGINT, unique=False, nullable=False)
-    content = db.Column(db.String(2000), unique=False, nullable=False)
-    likes = db.Column(db.ARRAY(db.String(5000)), unique=False, nullable=False)
-    # likes = db.Column(db.JSON(), unique=False, nullable=False)
-    # other_content = db.Column(db.JSON(), unique=False, nullable=False)
-    created_at = db.Column(db.DateTime, unique=True, nullable=False)
-    updated_at = db.Column(db.DateTime, unique=True, nullable=True)
+from playhouse.postgres_ext import *
+
+db = PostgresqlExtDatabase(os.getenv('DB_NAME'), user=os.getenv('DB_USERNAME'), password=os.getenv('DB_PASSWORD'), host='localhost', port='5432')
+
+class BaseModel(Model):
+    class Meta:
+        database = db
+
+class Post(BaseModel):
+    id = BigIntegerField(primary_key=True)
+    author = BigIntegerField(unique=False, null=False)
+    content = CharField(2000, unique=False, null=False)
+    likes = ArrayField(CharField, unique=False, null=False)
+    created_at = DateTimeField(unique=False, null=False)
+    updated_at = DateTimeField(unique=False, null=True) 
